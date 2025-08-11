@@ -149,6 +149,8 @@ table {
   border-collapse: collapse;
   font-size: 0.95rem;
   margin-top: 1rem;
+  table-layout: fixed;
+  word-wrap: break-word;
 }
 
 thead tr {
@@ -189,6 +191,7 @@ td.right {
   font-weight: 600;
 }
 
+/* Responsive Styles */
 @media (max-width: 700px) {
   .row {
     flex-direction: column;
@@ -200,8 +203,26 @@ td.right {
   header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.5rem;
   }
   .controls {
     margin-top: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  /* Make table horizontally scrollable */
+  .card table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  /* Shrink font size for table */
+  table, th, td {
+    font-size: 0.85rem;
+  }
+  /* Buttons in actions column stack nicely */
+  .actions button {
+    display: inline-block;
+    margin: 2px 2px 2px 0;
   }
 }
