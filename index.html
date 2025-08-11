@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Telsim Shop POS — Flexible Bilingual Offline</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Fixed typo here -->
+  <link rel="stylesheet" href="stlye.css" />
+</head>
+<body>
+  <div class="app">
+   <header style="display:flex; align-items:center; gap:12px; padding: 12px;">
+  <img src="images.png" alt="Vodafone Logo" style="height:40px; width:auto;" />
+  <h1 id="appTitle" style="margin:0; font-weight:700; font-size:1.8rem;">Telsim Shop POS</h1>
+  <div class="controls" style="margin-left:auto; display:flex; gap:12px; align-items:center;">
+    <div class="tiny" id="storageNote">Offline-ready • Data saved in browser</div>
+    <select id="langSelect" class="lang-switch" aria-label="Language">
+      <option value="en">English</option>
+      <option value="tr">Türkçe</option>
+    </select>
+  </div>
+</header>
+
+
+    <!-- Add sale -->
+    <div class="card" id="entryCard">
+      <form id="saleForm">
+        <div class="row">
+          <input type="date" id="date" required />
+          <input type="text" id="item" placeholder="Item name" required />
+          <input type="number" id="qty" min="1" step="1" placeholder="Qty" required />
+          <!-- Currency selector for the sale -->
+          <select id="currency" class="currency-select" aria-label="Select currency">
+            <option value="$">$ USD</option>
+            <option value="₺">₺ TRY</option>
+          </select>
+          <input type="number" id="price" min="0" step="0.01" placeholder="Unit price" required />
+          <input type="text" id="category" placeholder="Category (optional)" />
+          <button id="addBtn" type="submit">Add</button>
+          <button id="clearForm" type="button" class="ghost">Clear</button>
+        </div>
+      </form>
+      <div class="tiny" id="hint">Tip: Enter anything — product names are flexible.</div>
+    </div>
+
+    <!-- Import/Export / Filters -->
+    <div class="card">
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label class="tiny" id="filterDateLabel">Filter Date:</label>
+        <input type="date" id="filterDate" />
+        <button id="todayBtn" class="ghost tiny">Today</button>
+
+        <button id="btnPrint" class="tiny ghost">Print</button>
+
+        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none" />
+        <button id="btnImport" class="ghost tiny">Import Excel</button>
+        <button id="btnExportAll" class="tiny">Export All (Excel)</button>
+        <button id="btnExportFiltered" class="tiny ghost">Export Filtered</button>
+        <button id="btnNotebook" class="tiny">Notebook Export</button>
+
+        <div style="margin-left:auto" class="muted tiny" id="rowsCount">0 rows</div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <table id="salesTable">
+        <thead>
+          <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" class="right tiny" id="grandTotalLabel">Grand Total:</td>
+            <td id="grandTotal" class="right">0.00</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        <button id="exportCSV" class="ghost tiny">Export CSV</button>
+        <button id="clearAll" class="danger tiny">Clear All Local Data</button>
+      </div>
+    </div>
+
+    <div class="tiny muted" style="margin-top:8px;" id="offlineNote">
+      Note: Import/export uses SheetJS (internet required for that feature). Core features (add/view/delete) work offline.
+    </div>
+  </div>
+
+  <!-- SheetJS CDN (used for import/export). If offline, features will warn the user. -->
+  <script>
+    (function loadSheetJS(){
+      const script = document.createElement('script');
+      script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+      script.onload = ()=>{ window.SX = window.XLSX; console.log('SheetJS loaded'); }
+      script.onerror = ()=>{ console.log('SheetJS NOT loaded; import/export disabled'); }
+      document.head.appendChild(script);
+    })();
+  </script>
+
+  <script>
+    // ---------- Translations ----------
+    const translations = {
+      en: {
+        title: "Telsim Shop POS",
+        add: "Add",
+        clear: "Clear",
+        date: "Date",
+        item: "Item",
+        qty: "Quantity",
+        price: "Unit Price",
+        category: "Category",
+        importExcel: "Import Excel",
+        exportAll: "Export All",
+        exportFiltered: "Export Filtered",
+        notebookExport: "Notebook Export",
+        today: "Today",
+        hint: "Tip: Enter anything — product names are flexible.",
+        grandTotal: "Grand Total",
+        offlineNote: "Offline-ready • Data saved in browser",
+        rows: "rows",
+        confirmClear: "Are you sure you want to clear ALL local data? This cannot be undone.",
+        ok: "OK",
+        cancel: "Cancel",
+        importSuccess: "Import successful — merged rows:",
+        importFail: "Import failed or file invalid.",
+        exportFail: "Export not available (SheetJS not loaded).",
+        noDataPrint: "No data to print for the selected date.",
+        printTitle: "Sales Data for",
+        filterDateLabel: "Filter Date:",
+        grandTotalLabel: "Grand Total:",
+        print: "Print",
+        exportCSV: "Export CSV",
+        clearAll: "Clear All Local Data",
+        import: "Import Excel",
+        exportAllExcel: "Export All (Excel)",
+        exportFilteredExcel: "Export Filtered",
+        notebook: "Notebook Export",
+        edit: "Edit",
+        delete: "Delete"
+      },
+      tr: {
+        title: "Telsim Dükkan POS",
+        add: "Ekle",
+        clear: "Temizle",
+        date: "Tarih",
+        item: "Ürün",
+        qty: "Adet",
+        price: "Birim Fiyat",
+        category: "Kategori",
+        importExcel: "Excel İçe Aktar",
+        exportAll: "Tümünü Dışa Aktar",
+        exportFiltered: "Filtreleneni Dışa Aktar",
+        notebookExport: "Defter Raporu",
+        today: "Bugün",
+        hint: "İpucu: Her şeyi girin — ürün isimleri esnek.",
+        grandTotal: "Toplam",
+        offlineNote: "Çevrimdışı hazır • Veriler tarayıcıda saklanır",
+        rows: "kayıt",
+        confirmClear: "Tüm yerel verileri silmek istediğinizden emin misiniz? Geri alınamaz.",
+        ok: "Tamam",
+        cancel: "İptal",
+        importSuccess: "İçe aktarma başarılı — eklenen kayıt sayısı:",
+        importFail: "İçe aktarma başarısız veya dosya geçersiz.",
+        exportFail: "Dışa aktarma yapılamıyor (SheetJS yüklenmedi).",
+        noDataPrint: "Seçilen tarih için yazdırılacak veri yok.",
+        printTitle: "Satış Verileri",
+        filterDateLabel: "Tarih Filtrele:",
+        grandTotalLabel: "Toplam:",
+        print: "Yazdır",
+        exportCSV: "CSV Dışa Aktar",
+        clearAll: "Tüm Yerel Verileri Sil",
+        import: "Excel İçe Aktar",
+        exportAllExcel: "Tümünü Dışa Aktar (Excel)",
+        exportFilteredExcel: "Filtreleneni Dışa Aktar",
+        notebook: "Defter Raporu",
+        edit: "Düzenle",
+        delete: "Sil"
+      }
+    };
+
+    // ---------- Item translations ----------
+    const itemTranslations = {
+      "watch": { en: "watch", tr: "saat" },
+      "phone": { en: "phone", tr: "telefon" },
+      "charger": { en: "charger", tr: "şarj cihazı" },
+      "laptop": { en: "laptop", tr: "dizüstü bilgisayar" },
+      "headphones": { en: "headphones", tr: "kulaklık" },
+      "camera": { en: "camera", tr: "kamera" },
+      // add more items as needed
+    };
+
+    // ---------- App State ----------
+    const STORAGE_KEY = 'telsim_pos_data_v1';
+    let sales = []; // array of {id, date, item, qty, price, category, currency}
+    let lang = localStorage.getItem('telsim_pos_lang') || 'en';
+
+    // ---------- DOM ----------
+    const el = {
+      langSelect: document.getElementById('langSelect'),
+      appTitle: document.getElementById('appTitle'),
+      saleForm: document.getElementById('saleForm'),
+      date: document.getElementById('date'),
+      item: document.getElementById('item'),
+      qty: document.getElementById('qty'),
+      price: document.getElementById('price'),
+      category: document.getElementById('category'),
+      addBtn: document.getElementById('addBtn'),
+      clearForm: document.getElementById('clearForm'),
+      importFile: document.getElementById('importFile'),
+      btnImport: document.getElementById('btnImport'),
+      btnExportAll: document.getElementById('btnExportAll'),
+      btnExportFiltered: document.getElementById('btnExportFiltered'),
+      btnNotebook: document.getElementById('btnNotebook'),
+      filterDate: document.getElementById('filterDate'),
+      todayBtn: document.getElementById('todayBtn'),
+      tableHead: document.getElementById('tableHead'),
+      tableBody: document.getElementById('tableBody'),
+      grandTotal: document.getElementById('grandTotal'),
+      rowsCount: document.getElementById('rowsCount'),
+      exportCSV: document.getElementById('exportCSV'),
+      clearAll: document.getElementById('clearAll'),
+      storageNote: document.getElementById('storageNote'),
+      hint: document.getElementById('hint'),
+      btnPrint: document.getElementById('btnPrint'),
+      currencySelect: document.getElementById('currency'),
+      filterDateLabel: document.getElementById('filterDateLabel'),
+      grandTotalLabel: document.getElementById('grandTotalLabel'),
+      offlineNote: document.getElementById('offlineNote'),
+    };
+
+    // ---------- Helpers ----------
+    function t(k){
+      return translations[lang][k] ?? translations['en'][k] ?? k;
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sales));
+    }
+    function load() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      sales = raw ? JSON.parse(raw) : [];
+    }
+    function uid(){ return 'id_' + Math.random().toString(36).slice(2,9); }
+    function isoDate(input){
+      if(!input) return new Date().toISOString().slice(0,10);
+      return input.slice(0,10);
+    }
+
+    // Format money with currency symbol (per sale)
+    function money(n, currencySymbol = '$') {
+      return currencySymbol + Number(n || 0).toFixed(2);
+    }
+
+    // Escape HTML entities
+    function escapeHtml(s){ return (s||'').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    // Translate item name based on lang & dictionary
+    function translateItemName(item) {
+      if (!item) return '';
+      const key = item.toLowerCase();
+      if(itemTranslations[key]) {
+        return lang === 'tr' ? itemTranslations[key].tr : itemTranslations[key].en;
+      }
+      return item; // fallback if no translation found
+    }
+
+    // ---------- Render ----------
+    function renderUITexts(){
+      el.appTitle.textContent = t('title');
+      el.addBtn.textContent = t('add');
+      el.clearForm.textContent = t('clear');
+      el.todayBtn.textContent = t('today');
+      el.storageNote.textContent = t('offlineNote');
+      el.hint.textContent = t('hint');
+      el.filterDateLabel.textContent = t('filterDateLabel');
+      el.grandTotalLabel.textContent = t('grandTotalLabel');
+      el.btnPrint.textContent = t('print');
+      el.exportCSV.textContent = t('exportCSV');
+      el.clearAll.textContent = t('clearAll');
+      el.btnImport.textContent = t('import');
+      el.btnExportAll.textContent = t('exportAllExcel');
+      el.btnExportFiltered.textContent = t('exportFilteredExcel');
+      el.btnNotebook.textContent = t('notebook');
+    }
+
+    function renderTable(){
+      const headers = [t('date'), t('item'), t('qty'), t('price'), t('category'), t('grandTotal'), ''];
+      el.tableHead.innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+      const filter = el.filterDate.value ? isoDate(el.filterDate.value) : null;
+      const rows = sales.filter(s => (filter ? s.date === filter : true));
+      el.tableBody.innerHTML = rows.map(r => {
+        return `<tr data-id="${r.id}">
+          <td>${r.date}</td>
+          <td style="text-align:left">${escapeHtml(translateItemName(r.item))}</td>
+          <td>${r.qty}</td>
+          <td class="right">${money(r.price, r.currency)}</td>
+          <td>${escapeHtml(r.category||'')}</td>
+          <td class="right">${money(r.qty * r.price, r.currency)}</td>
+          <td class="actions">
+            <button class="ghost tiny" data-act="edit">${t('edit')}</button>
+            <button class="danger tiny" data-act="delete">${t('delete')}</button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      // Calculate totals grouped by currency
+      const totalsByCurrency = {};
+      rows.forEach(r => {
+        totalsByCurrency[r.currency] = (totalsByCurrency[r.currency] || 0) + (r.qty * r.price);
+      });
+
+      // Display grand total for each currency separated by slash
+      el.grandTotal.textContent = Object.entries(totalsByCurrency).map(([cur, val]) => money(val, cur)).join(' / ');
+
+      el.rowsCount.textContent = `${rows.length} ${t('rows')}`;
+    }
+
+    // ---------- Actions ----------
+    function addSaleFromForm(e){
+      e && e.preventDefault();
+      const data = {
+        id: uid(),
+        date: isoDate(el.date.value || new Date().toISOString()),
+        item: el.item.value.trim(),
+        qty: parseInt(el.qty.value || 1, 10),
+        price: parseFloat(Number(el.price.value || 0)),
+        category: (el.category.value || '').trim(),
+        currency: el.currencySelect.value || '$'  // Store currency symbol per sale
+      };
+      if(!data.item) return alert('Enter item name');
+      sales.push(data);
+      save();
+      renderTable();
+      el.saleForm.reset();
+      el.date.value = isoDate(new Date().toISOString());
+      el.item.focus();
+    }
+
+    function setTodayFilter(){
+      el.filterDate.value = isoDate(new Date().toISOString());
+      renderTable();
+    }
+
+    function onTableClick(e){
+      const act = e.target.getAttribute('data-act');
+      if(!act) return;
+      const row = e.target.closest('tr');
+      const id = row?.getAttribute('data-id');
+      if(!id) return;
+      if(act === 'delete'){
+        if(!confirm('Delete this record?')) return;
+        sales = sales.filter(s => s.id !== id);
+        save();
+        renderTable();
+      } else if(act === 'edit'){
+        const s = sales.find(x => x.id === id);
+        if(!s) return;
+        el.date.value = s.date;
+        el.item.value = s.item;
+        el.qty.value = s.qty;
+        el.price.value = s.price;
+        el.category.value = s.category;
+        el.currencySelect.value = s.currency;
+        // Remove old entry and re-add on form submit
+        sales = sales.filter(x => x.id !== id);
+        save();
+        renderTable();
+      }
+    }
+
+    function clearAllData(){
+      if(confirm(t('confirmClear'))) {
+        localStorage.removeItem(STORAGE_KEY);
+        sales = [];
+        renderTable();
+      }
+    }
+
+    // ---------- CSV Export ----------
+    function exportCSV(){
+      if(!sales.length) return alert('No data to export.');
+      const filter = el.filterDate.value ? isoDate(el.filterDate.value) : null;
+      const rows = sales.filter(s => (filter ? s.date === filter : true));
+      if(!rows.length) return alert('No data to export for selected filter.');
+
+      const csvHeaders = [t('date'), t('item'), t('qty'), t('price'), t('category'), 'Currency'];
+      const csvRows = [
+        csvHeaders.join(','),
+        ...rows.map(r => [
+          r.date,
+          `"${r.item.replace(/"/g, '""')}"`,
+          r.qty,
+          r.price,
+          `"${(r.category||'').replace(/"/g, '""')}"`,
+          r.currency
+        ].join(','))
+      ];
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `sales_${filter || 'all'}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    // ---------- Print filtered sales ----------
+    function printSales(){
+      const filter = el.filterDate.value ? isoDate(el.filterDate.value) : null;
+      const rows = sales.filter(s => (filter ? s.date === filter : true));
+      if(!rows.length){
+        alert(t('noDataPrint'));
+        return;
+      }
+
+      const titleDate = filter || t('printTitle');
+      let printContent = `
+        <html><head><title>${t('printTitle')} ${titleDate}</title>
+        <style>
+          body { font-family: sans-serif; margin: 20px; }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+          th { background: #eee; }
+          .right { text-align: right; }
+        </style>
+        </head><body>
+        <h1>${t('printTitle')} ${titleDate}</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>${t('date')}</th>
+              <th>${t('item')}</th>
+              <th>${t('qty')}</th>
+              <th>${t('price')}</th>
+              <th>${t('category')}</th>
+              <th>${t('grandTotal')}</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      rows.forEach(r => {
+        printContent += `<tr>
+          <td>${r.date}</td>
+          <td>${escapeHtml(translateItemName(r.item))}</td>
+          <td>${r.qty}</td>
+          <td class="right">${money(r.price, r.currency)}</td>
+          <td>${escapeHtml(r.category || '')}</td>
+          <td class="right">${money(r.qty * r.price, r.currency)}</td>
+        </tr>`;
+      });
+
+      // Calculate totals grouped by currency
+      const totalsByCurrency = {};
+      rows.forEach(r => {
+        totalsByCurrency[r.currency] = (totalsByCurrency[r.currency] || 0) + (r.qty * r.price);
+      });
+
+      printContent += `</tbody><tfoot><tr><td colspan="5" class="right" style="font-weight:bold;">${t('grandTotal')}:</td>
+        <td class="right" style="font-weight:bold;">${Object.entries(totalsByCurrency).map(([cur, val]) => money(val, cur)).join(' / ')}</td>
+      </tr></tfoot></table></body></html>`;
+
+      const printWindow = window.open('', '', 'width=900,height=700');
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    }
+
+    // ---------- Import Excel ----------
+    function importExcelFile(event){
+      const file = event.target.files[0];
+      if(!file) return;
+      if(!window.SX) {
+        alert(t('exportFail'));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e){
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = SX.read(data, {type: 'array'});
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = SX.utils.sheet_to_json(worksheet, {defval: ''});
+          if(!jsonData.length){
+            alert(t('importFail'));
+            return;
+          }
+
+          // Map json rows to our data structure
+          let newEntries = 0;
+          jsonData.forEach(row => {
+            // Expecting headers matching date, item, qty, price, category, currency
+            // Case insensitive matching
+            const date = row['date'] || row['Date'] || row['DATE'];
+            const item = row['item'] || row['Item'] || row['ITEM'];
+            const qty = row['qty'] || row['Qty'] || row['QTY'] || 1;
+            const price = row['price'] || row['Price'] || row['PRICE'] || 0;
+            const category = row['category'] || row['Category'] || row['CATEGORY'] || '';
+            const currency = row['currency'] || row['Currency'] || row['CURRENCY'] || '$';
+
+            if(!date || !item) return; // skip invalid rows
+
+            // Check for duplicates - simple: same date + item + price + qty + category + currency
+            const exists = sales.some(s =>
+              s.date === isoDate(date) &&
+              s.item.toLowerCase() === item.toLowerCase() &&
+              s.qty === Number(qty) &&
+              Number(s.price) === Number(price) &&
+              (s.category||'').toLowerCase() === (category||'').toLowerCase() &&
+              s.currency === currency
+            );
+
+            if(!exists){
+              sales.push({
+                id: uid(),
+                date: isoDate(date),
+                item: item.toString(),
+                qty: Number(qty),
+                price: Number(price),
+                category: category.toString(),
+                currency: currency.toString()
+              });
+              newEntries++;
+            }
+          });
+
+          if(newEntries) {
+            save();
+            renderTable();
+            alert(`${t('importSuccess')} ${newEntries}`);
+          } else {
+            alert('No new entries found in the imported file.');
+          }
+        } catch(err){
+          console.error(err);
+          alert(t('importFail'));
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      // Clear input to allow same file import again
+      event.target.value = '';
+    }
+
+    // ---------- Export Excel ----------
+    function exportExcel(all = true){
+      if(!window.SX) {
+        alert(t('exportFail'));
+        return;
+      }
+
+      const filter = el.filterDate.value ? isoDate(el.filterDate.value) : null;
+      const rows = all ? sales : sales.filter(s => (filter ? s.date === filter : true));
+      if(!rows.length){
+        alert('No data to export.');
+        return;
+      }
+
+      // Build worksheet data with headers
+      const wsData = [
+        [t('date'), t('item'), t('qty'), t('price'), t('category'), 'Currency']
+      ];
+
+      rows.forEach(r => {
+        wsData.push([
+          r.date,
+          r.item,
+          r.qty,
+          r.price,
+          r.category || '',
+          r.currency
+        ]);
+      });
+
+      const ws = SX.utils.aoa_to_sheet(wsData);
+      const wb = SX.utils.book_new();
+      SX.utils.book_append_sheet(wb, ws, 'Sales');
+
+      const wbout = SX.write(wb, {bookType:'xlsx', type:'array'});
+      const blob = new Blob([wbout], {type: 'application/octet-stream'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      const filename = all ? 'sales_all.xlsx' : `sales_filtered_${filter || 'all'}.xlsx`;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    // ---------- Notebook Export (Markdown style) ----------
+    function exportNotebook(){
+      const filter = el.filterDate.value ? isoDate(el.filterDate.value) : null;
+      const rows = sales.filter(s => (filter ? s.date === filter : true));
+      if(!rows.length){
+        alert('No data to export.');
+        return;
+      }
+
+      let mdContent = `# Sales Notebook Export - ${filter || 'All Dates'}\n\n`;
+
+      rows.forEach((r, idx) => {
+        mdContent += `## Sale #${idx + 1}\n`;
+        mdContent += `- **Date:** ${r.date}\n`;
+        mdContent += `- **Item:** ${r.item}\n`;
+        mdContent += `- **Quantity:** ${r.qty}\n`;
+        mdContent += `- **Unit Price:** ${money(r.price, r.currency)}\n`;
+        mdContent += `- **Category:** ${r.category || 'N/A'}\n`;
+        mdContent += `- **Total:** ${money(r.qty * r.price, r.currency)}\n\n`;
+      });
+
+      const blob = new Blob([mdContent], {type: 'text/markdown;charset=utf-8;'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `sales_notebook_${filter || 'all'}.md`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    // ---------- Init ----------
+    function init(){
+      load();
+      el.langSelect.value = lang;
+      renderUITexts();
+      renderTable();
+      el.date.value = isoDate(new Date().toISOString());
+    }
+
+    // ---------- Event Listeners ----------
+    el.saleForm.addEventListener('submit', addSaleFromForm);
+    el.clearForm.addEventListener('click', e => el.saleForm.reset());
+    el.langSelect.addEventListener('change', e => {
+      lang = e.target.value;
+      localStorage.setItem('telsim_pos_lang', lang);
+      renderUITexts();
+      renderTable();
+    });
+    el.filterDate.addEventListener('change', renderTable);
+    el.todayBtn.addEventListener('click', setTodayFilter);
+    el.tableBody.addEventListener('click', onTableClick);
+    el.clearAll.addEventListener('click', clearAllData);
+    el.exportCSV.addEventListener('click', exportCSV);
+
+    el.btnPrint.addEventListener('click', printSales);
+    el.btnImport.addEventListener('click', () => el.importFile.click());
+    el.importFile.addEventListener('change', importExcelFile);
+    el.btnExportAll.addEventListener('click', () => exportExcel(true));
+    el.btnExportFiltered.addEventListener('click', () => exportExcel(false));
+    el.btnNotebook.addEventListener('click', exportNotebook);
+
+    // Run init
+    init();
+  </script>
+</body>
+</html>
