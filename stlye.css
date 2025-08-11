@@ -35,6 +35,8 @@ header {
   margin-bottom: 1rem;
   border-bottom: 2px solid var(--vodafone-red);
   padding-bottom: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 #appTitle {
@@ -47,6 +49,7 @@ header {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .lang-switch {
@@ -93,6 +96,7 @@ select {
   flex: 1 1 150px;
   max-width: 250px;
   transition: border-color 0.3s ease;
+  box-sizing: border-box;
 }
 
 input[type="text"]:focus,
@@ -114,6 +118,8 @@ button {
   cursor: pointer;
   font-size: 1rem;
   transition: background-color 0.3s ease;
+  flex-shrink: 0;
+  min-width: 80px;
 }
 
 button:hover,
@@ -162,6 +168,7 @@ th, td {
   border: 1px solid var(--vodafone-dark-red);
   padding: 0.6rem 0.8rem;
   text-align: center;
+  overflow-wrap: break-word;
 }
 
 th {
@@ -175,6 +182,7 @@ td.right {
 .actions button {
   padding: 0.3rem 0.6rem;
   font-size: 0.8rem;
+  min-width: auto;
 }
 
 .muted {
@@ -191,7 +199,16 @@ td.right {
   font-weight: 600;
 }
 
-/* Responsive Styles */
+/* Responsive improvements */
+
+/* Scrollable table wrapper for smaller screens */
+.card > table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smaller screen form improvements */
 @media (max-width: 700px) {
   .row {
     flex-direction: column;
@@ -203,26 +220,33 @@ td.right {
   header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
   }
   .controls {
     margin-top: 0.8rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
   }
-  /* Make table horizontally scrollable */
-  .card table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
+}
+
+/* Extra small devices (phones) */
+@media (max-width: 400px) {
+  #appTitle {
+    font-size: 1.5rem;
   }
-  /* Shrink font size for table */
-  table, th, td {
+  button {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.9rem;
+  }
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  select {
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 0.4rem 0.5rem;
     font-size: 0.85rem;
   }
-  /* Buttons in actions column stack nicely */
   .actions button {
-    display: inline-block;
-    margin: 2px 2px 2px 0;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
   }
 }
